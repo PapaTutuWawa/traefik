@@ -146,6 +146,13 @@ func (r *Router) ServeTCP(conn tcp.WriteCloser) {
 		return
 	}
 
+	// Contains also TCP TLS passthrough routes.
+	handlerTCPTLS, catchAllTCPTLS := r.muxerTCPTLS.Match(connData)
+	if handlerTCPTLS != nil && !catchAllTCPTLS {
+		handlerTCPTLS.ServeTCP(r.GetConn(conn, hello.peeked))
+		return
+	}
+
 	// For real, the handler eventually used for HTTPS is (almost) always the same:
 	// it is the httpsForwarder that is used for all HTTPS connections that match
 	// (which is also incidentally the same used in the last block below for 404s).
@@ -157,13 +164,6 @@ func (r *Router) ServeTCP(conn tcp.WriteCloser) {
 		// we only allow an HTTPS router to take precedence over a TCP-TLS router if it is _not_ an HostSNI(*) router
 		// (so basically any router that has a specific HostSNI based rule).
 		handlerHTTPS.ServeTCP(r.GetConn(conn, hello.peeked))
-		return
-	}
-
-	// Contains also TCP TLS passthrough routes.
-	handlerTCPTLS, catchAllTCPTLS := r.muxerTCPTLS.Match(connData)
-	if handlerTCPTLS != nil && !catchAllTCPTLS {
-		handlerTCPTLS.ServeTCP(r.GetConn(conn, hello.peeked))
 		return
 	}
 
